@@ -6,6 +6,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"log/slog"
 )
 
 type UserStorage interface {
@@ -17,7 +18,7 @@ type UserStorage interface {
 type MongoDBStorage struct {
 	Client *mongo.Client
 	DB     *mongo.Database
-	// todo logger
+	log    *slog.Logger
 }
 
 func NewMongoDB(uri, dbName string) (*MongoDBStorage, error) {
@@ -33,7 +34,10 @@ func NewMongoDB(uri, dbName string) (*MongoDBStorage, error) {
 
 func (s *MongoDBStorage) SaveUser(user *models.User) error {
 	_, err := s.DB.Collection("users").InsertOne(context.Background(), user)
-	return err
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // GetUserByID отримує користувача за ID

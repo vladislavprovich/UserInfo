@@ -12,28 +12,39 @@ type Config struct {
 	Logger  LoggerConfig
 	Logging LoggingConfig
 	Tracing TracingConfig
-	Mongo   storage.ConfigMongo
+	GRPC    GRPCConfig
+	Otel    OtelConfig
+	MongoDB storage.ConfigMongo
 }
 
 type LoggerConfig struct {
-	Level string `env:"LOG_LEVEL" envDefault:"info"`
+	Env string `env:"LOG_ENV"`
 }
 
 type LoggingConfig struct {
 	LevelLoki string `env:"LOG_LEVEL_LOKI" envDefault:"info"`
 	Format    string `env:"LOG_FORMAT" envDefault:"text"`
-	LokiURL   string `env:"LOG_LOKI_URL" envDefault:"http://loki:30000"`
+	LokiURL   string `env:"LOG_LOKI_URL" envDefault:"http://localhost:3100"`
 	LogDir    string `env:"LOG_DIR" envDefault:"./logs"`
 }
 
 type TracingConfig struct {
-	TempoURL  string `env:"TRACING_TEMPO_URL" envDefault:"http://tempo:30000"`
-	NameSpase string `env:"TRACING_NAME_SPASE" envDefault:"qwerty"`
+	TempoURL  string `env:"TRACING_TEMPO_URL" envDefault:"http://localhost:3200"`
+	NameSpase string `env:"TRACING_NAME_SPASE" envDefault:"default"`
 }
 
 type GRPCConfig struct {
-	PortGRPC    string        `env:"GRPC_PORT" envDefault:"50051"`
+	PortGRPC    int           `env:"GRPC_PORT" envDefault:"50051"`
 	TimeoutGRPC time.Duration `env:"GRPC_TIMEOUT" envDefault:"10s"`
+}
+
+type OtelConfig struct {
+	Endpoint          string        `env:"OTEL_ENDPOINT" envDefault:"http://localhost:4317"`
+	MetricsPort       int           `env:"OTEL_METRICS_PORT" envDefault:"9464"`
+	Adr               string        `env:"OTEL_ADR" envDefault:"localhost"`
+	ReadTimeout       time.Duration `env:"OTEL_READ_TIMEOUT" envDefault:"5s"`
+	WriteTimeout      time.Duration `env:"OTEL_WRITE_TIMEOUT" envDefault:"5s"`
+	ReadHeaderTimeout time.Duration `env:"OTEL_READ_HEADER_TIMEOUT" envDefault:"5s"`
 }
 
 func MustLoad() *Config {
