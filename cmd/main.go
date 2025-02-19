@@ -4,6 +4,9 @@ import (
 	"context"
 	"github.com/vladislavprovich/UserInfo/config"
 	app "github.com/vladislavprovich/UserInfo/internal/app"
+	"github.com/vladislavprovich/UserInfo/lib/logger/slogpretty"
+	"io"
+	"path/filepath"
 
 	"github.com/vladislavprovich/UserInfo/lib/telemetry"
 	log2 "log"
@@ -22,7 +25,7 @@ const (
 func main() {
 	cfg := config.MustLoad()
 	ctx := context.Background()
-	log := setupLogger(cfg)
+	log := setupLogger(cfg, ctx)
 
 	// Init logs directory.
 	err := telemetry.EnsureLogDir(cfg.Logging.LogDir)
@@ -68,44 +71,44 @@ func main() {
 	log.Info("application stopped")
 }
 
-//func setupLogger(cfg *config.Config) *slog.Logger {
-//	var log *slog.Logger
-//	logFilePath := filepath.Join(cfg.Logging.LogDir, "app.log")
-//	logFile, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-//	if err != nil {
-//		log.Error("failed to open log file",
-//			slog.String("logFilePath", logFilePath),
-//			slog.String("error", err.Error()))
-//		os.Exit(1)
-//	}
-//
-//	// Use io.MultiWriter to write logs to both stdout and file.
-//	multiWriter := io.MultiWriter(os.Stdout, logFile)
-//
-//	switch cfg.Logger.Env {
-//	case envLocal:
-//		prettyHandler := slogpretty.PrettyHandlerOptions{
-//			SlogOpts: &slog.HandlerOptions{Level: slog.LevelDebug},
-//		}.NewPrettyHandler(multiWriter)
-//		log = slog.New(prettyHandler)
-//	case envDev, envProd:
-//		log = slog.New(slog.NewJSONHandler(multiWriter, &slog.HandlerOptions{Level: slog.LevelDebug}))
-//	default:
-//		log = slog.New(slog.NewTextHandler(multiWriter, &slog.HandlerOptions{Level: slog.LevelDebug}))
-//	}
-//
-//	return log
-//}
-
-func setupLogger(cfg *config.Config) *slog.Logger {
-	if cfg == nil {
-		panic("Config is nil, cannot initialize logger")
+func setupLogger(cfg *config.Config, ctx context.Context) *slog.Logger {
+	var log *slog.Logger
+	logFilePath := filepath.Join(cfg.Logging.LogDir, "app.log")
+	logFile, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		log.ErrorContext(ctx, "failed to open log file",
+			slog.String("logFilePath", logFilePath),
+			slog.String("error", err.Error()))
+		os.Exit(1)
 	}
 
-	opts := &slog.HandlerOptions{
-		Level: slog.LevelInfo, // Можеш змінити рівень логування через cfg
+	// Use io.MultiWriter to write logs to both stdout and file.
+	multiWriter := io.MultiWriter(os.Stdout, logFile)
+
+	switch cfg.Logger.Env {
+	case envLocal:
+		prettyHandler := slogpretty.PrettyHandlerOptions{
+			SlogOpts: &slog.HandlerOptions{Level: slog.LevelDebug},
+		}.NewPrettyHandler(multiWriter)
+		log = slog.New(prettyHandler)
+	case envDev, envProd:
+		log = slog.New(slog.NewJSONHandler(multiWriter, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	default:
+		log = slog.New(slog.NewTextHandler(multiWriter, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	}
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, opts))
-	return logger
+	return log
 }
+
+//func setupLogger(cfg *config.Config) *slog.Logger {
+//	if cfg == nil {
+//		panic("Config is nil, cannot initialize logger")
+//	}
+//
+//	opts := &slog.HandlerOptions{
+//		Level: slog.LevelInfo, // Можеш змінити рівень логування через cfg
+//	}
+//
+//	logger := slog.New(slog.NewTextHandler(os.Stdout, opts))
+//	return logger
+//}

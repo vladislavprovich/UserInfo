@@ -79,7 +79,7 @@ func InitTracing(ctx context.Context, otelEndpoint string, log *slog.Logger) (*t
 
 	resource, err := resource.New(ctx,
 		resource.WithAttributes(
-			semconv.ServiceNameKey.String("sso-service"),
+			semconv.ServiceNameKey.String("userinfo-service"),
 		),
 	)
 	if err != nil {
