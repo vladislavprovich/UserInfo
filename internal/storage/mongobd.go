@@ -7,6 +7,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"log/slog"
+	"time"
 )
 
 type UserStorage interface {
@@ -33,21 +34,20 @@ func NewMongoDB(uri, dbName string) (*MongoDBStorage, error) {
 }
 
 func (s *MongoDBStorage) SaveUser(user *models.User) error {
+	now := time.Now()
+	user.CreatedAt = now
+	user.UpdatedAt = now
+
 	_, err := s.DB.Collection("users").InsertOne(context.Background(), user)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
-// GetUserByID отримує користувача за ID
 func (s *MongoDBStorage) GetUserByID(id string) (*models.User, error) {
 	var user models.User
-	err := s.DB.Collection("users").FindOne(context.Background(), bson.M{"_id": id}).Decode(&user)
+	err := s.DB.Collection("users").FindOne(context.Background(), bson.M{"user_id": id}).Decode(&user)
 	return &user, err
 }
 
-// GetUserByEmail отримує користувача за Email
 func (s *MongoDBStorage) GetUserByEmail(email string) (*models.User, error) {
 	var user models.User
 	err := s.DB.Collection("users").FindOne(context.Background(), bson.M{"email": email}).Decode(&user)

@@ -26,8 +26,6 @@ type ApiServer struct {
 	Tracer  trace.Tracer
 }
 
-//todo params
-
 func Register(gRPC *grpc.Server, tracer trace.Tracer, log *slog.Logger, storage storage.UserStorage) {
 	userinfov3.RegisterUserInfoServiceServer(gRPC, &ApiServer{
 		Storage: storage,
@@ -50,7 +48,7 @@ func (s *ApiServer) GetUserByID(
 
 	user, err := s.Storage.GetUserByID(req.GetUserId())
 	if err != nil {
-		s.log.Error("GetUserByID error",
+		s.log.Warn("GetUserByID error",
 			slog.String("user_id", req.GetUserId()),
 			slog.String("error", err.Error()),
 		)
@@ -79,7 +77,7 @@ func (s *ApiServer) GetUserByEmail(
 
 	user, err := s.Storage.GetUserByEmail(req.GetEmail())
 	if err != nil {
-		s.log.Error("GetUserByEmail error",
+		s.log.Warn("GetUserByEmail error",
 			slog.String("email", req.GetEmail()),
 			slog.String("error", err.Error()))
 		span.RecordError(err)
