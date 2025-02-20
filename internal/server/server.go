@@ -12,8 +12,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 const (
@@ -82,7 +80,7 @@ func (s *APIServer) GetUserByID(
 			slog.String("user_id", req.GetUserId()),
 			slog.String("error", err.Error()))
 		span.RecordError(err)
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, err
 	}
 
 	return &userinfov3.UserByIDResponse{
@@ -104,7 +102,7 @@ func (s *APIServer) GetUserByEmail(
 			slog.String("email", req.GetEmail()),
 			slog.String("error", err.Error()))
 		span.RecordError(err)
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, err
 	}
 
 	return &userinfov3.UserByEmailResponse{

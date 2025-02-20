@@ -85,7 +85,7 @@ func TestGetUserByID(t *testing.T) {
 			mockReturn:    nil,
 			mockError:     errors.New("user not found"),
 			expectedResp:  nil,
-			expectedError: "rpc error: code = Internal desc = get user by ID error: user not found",
+			expectedError: "get user by user_id error: user not found",
 		},
 		{
 			name:          "Database error",
@@ -93,7 +93,7 @@ func TestGetUserByID(t *testing.T) {
 			mockReturn:    nil,
 			mockError:     errors.New("database connection error"),
 			expectedResp:  nil,
-			expectedError: "rpc error: code = Internal desc = get user by ID error: database connection error",
+			expectedError: "get user by user_id error: database connection error",
 		},
 	}
 
@@ -158,7 +158,7 @@ func TestGetUserByEmail(t *testing.T) {
 			mockReturn:    nil,
 			mockError:     errors.New("user not found"),
 			expectedResp:  nil,
-			expectedError: "rpc error: code = Internal desc = get user by Email error: user not found",
+			expectedError: "get user by email error: user not found",
 		},
 		{
 			name:          "Database error",
@@ -166,7 +166,7 @@ func TestGetUserByEmail(t *testing.T) {
 			mockReturn:    nil,
 			mockError:     errors.New("database error"),
 			expectedResp:  nil,
-			expectedError: "rpc error: code = Internal desc = get user by Email error: database error",
+			expectedError: "get user by email error: database error",
 		},
 	}
 
