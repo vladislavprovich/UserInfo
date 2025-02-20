@@ -18,8 +18,8 @@ services:
       dockerfile: Dockerfile
     container_name: userinfoservice
     depends_on:
-      - mongo
-      - otel-lgtm-userinfo
+      otel-lgtm-userinfo:
+        condition: service_healthy
     env_file:
       - .env
     ports:
@@ -27,11 +27,9 @@ services:
     volumes:
       - ./logs:/app/logs
 
-  # === LGTM для UserInfo ===
   otel-lgtm-userinfo:
     image: grafana/otel-lgtm:latest
     container_name: otel-lgtm-userinfo
-    restart: always
     ports:
       - "13000:3000"   # Grafana
       - "13100:3100"   # Loki
@@ -39,27 +37,27 @@ services:
       - "14317:4317"   # OTEL GRPC
       - "14318:4318"   # OTEL HTTP
       - "19090:9090"   # Prometheus
-    volumes:
-      - ./logs:/var/logs
+    restart: unless-stopped
+    healthcheck:
+        test: [ "CMD", "curl", "-f", "http://localhost:3000/api/health" ]
+        interval: 10s
+        timeout: 5s
+        retries: 5
 
   promtail-userinfo:
     image: grafana/promtail:2.8.2
     container_name: promtail-userinfo
     restart: always
     volumes:
-      - ./logs:/var/log
-    environment:
-      - LOKI_URL=http://otel-lgtm:3100/loki/api/v1/push
-      - JOB_NAME=userinfo_logs
-      - LOG_PATH=/var/log/*.log
+      - ./logs:/app/logs
+      - ./promtail-config.yml:/etc/promtail/config.yml
     command:
-      - "-config.expand-env=true"
-      - "-client.url=${LOKI_URL}"
-      - "-server.http-listen-port=9080"
-      - "-server.grpc-listen-port=0"
-      - "-config.file="
-    stdin_open: true
-    tty: true
+      - "-config.file=/etc/promtail/config.yml"
+    ports:
+      - "9080:9080"
+    depends_on:
+      otel-lgtm-userinfo:
+        condition: service_healthy
 
 volumes:
   mongo_data:

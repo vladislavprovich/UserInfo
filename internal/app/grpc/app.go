@@ -3,11 +3,12 @@ package grpcapp
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"net"
+
 	"github.com/vladislavprovich/UserInfo/internal/storage"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"log/slog"
-	"net"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
@@ -100,7 +101,6 @@ func (a *App) Run() {
 	if err = a.gRPCServer.Serve(lis); err != nil {
 		panic(err)
 	}
-
 }
 
 func (a *App) Stop() {

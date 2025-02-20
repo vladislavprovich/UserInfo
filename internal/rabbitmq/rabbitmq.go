@@ -1,8 +1,9 @@
 package rabbitmq
 
 import (
-	"github.com/streadway/amqp"
 	"log"
+
+	"github.com/streadway/amqp"
 )
 
 func NewRabbitMQ() (*amqp.Connection, *amqp.Channel, error) {

@@ -2,18 +2,20 @@ package main
 
 import (
 	"context"
-	"github.com/vladislavprovich/UserInfo/config"
-	app "github.com/vladislavprovich/UserInfo/internal/app"
-	"github.com/vladislavprovich/UserInfo/lib/logger/slogpretty"
 	"io"
 	"path/filepath"
 
-	"github.com/vladislavprovich/UserInfo/lib/telemetry"
+	"github.com/vladislavprovich/UserInfo/config"
+	app "github.com/vladislavprovich/UserInfo/internal/app"
+	"github.com/vladislavprovich/UserInfo/lib/logger/slogpretty"
+
 	log2 "log"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/vladislavprovich/UserInfo/lib/telemetry"
 )
 
 const (
@@ -25,7 +27,7 @@ const (
 func main() {
 	cfg := config.MustLoad()
 	ctx := context.Background()
-	log := setupLogger(cfg, ctx)
+	log := setupLogger(ctx, cfg)
 
 	// Init logs directory.
 	err := telemetry.EnsureLogDir(cfg.Logging.LogDir)
@@ -71,7 +73,7 @@ func main() {
 	log.Info("application stopped")
 }
 
-func setupLogger(cfg *config.Config, ctx context.Context) *slog.Logger {
+func setupLogger(ctx context.Context, cfg *config.Config) *slog.Logger {
 	var log *slog.Logger
 	logFilePath := filepath.Join(cfg.Logging.LogDir, "app.log")
 	logFile, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
@@ -99,16 +101,3 @@ func setupLogger(cfg *config.Config, ctx context.Context) *slog.Logger {
 
 	return log
 }
-
-//func setupLogger(cfg *config.Config) *slog.Logger {
-//	if cfg == nil {
-//		panic("Config is nil, cannot initialize logger")
-//	}
-//
-//	opts := &slog.HandlerOptions{
-//		Level: slog.LevelInfo, // Можеш змінити рівень логування через cfg
-//	}
-//
-//	logger := slog.New(slog.NewTextHandler(os.Stdout, opts))
-//	return logger
-//}

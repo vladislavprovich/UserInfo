@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/vladislavprovich/UserInfo/config"
 	"log/slog"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/vladislavprovich/UserInfo/config"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 

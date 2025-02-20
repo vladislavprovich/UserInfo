@@ -1,68 +1,64 @@
 package rabbitmq
 
 import (
+	"context"
 	"encoding/json"
+	"log"
+
 	"github.com/streadway/amqp"
 	"github.com/vladislavprovich/UserInfo/internal/models"
 	"github.com/vladislavprovich/UserInfo/internal/storage"
-	"log"
 )
 
-// RegisterUserPayload – структура повідомлення
-type RegisterUserPayload struct {
-	UserID   string `json:"user_id"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
-// StartConsumer запускає споживача RabbitMQ
 func StartConsumer(ch *amqp.Channel, storage storage.UserStorage) {
+	ctx := context.Background()
 	q, err := ch.QueueDeclare(
-		"user_registration", // Назва черги
-		true,                // Durable
-		false,               // Auto-delete
-		false,               // Exclusive
-		false,               // No-wait
-		nil,                 // Arguments
+		"user_registration",
+		true,
+		false,
+		false,
+		false,
+		nil,
 	)
 	if err != nil {
-		log.Fatalf("Помилка створення черги: %v", err)
+		log.Fatalf("error creating queue: %v", err)
 	}
 
 	msg, err := ch.Consume(
-		q.Name, // Queue
-		"",     // Consumer
-		true,   // Auto-Ack
-		false,  // Exclusive
-		false,  // No-local
-		false,  // No-wait
-		nil,    // Args
+		q.Name,
+		"",
+		true,
+		false,
+		false,
+		false,
+		nil,
 	)
 	if err != nil {
-		log.Fatalf("Помилка отримання повідомлень: %v", err)
+		log.Fatalf("error get message: %v", err)
 	}
 
 	go func() {
 		for d := range msg {
-			var userPayload RegisterUserPayload
+			var userPayload *models.UserPayload
 			err = json.Unmarshal(d.Body, &userPayload)
 			if err != nil {
-				log.Printf("Помилка розпарсення повідомлення: %v", err)
+				log.Printf("error unparsing message: %v", err)
 				continue
 			}
 
-			// Створюємо нового користувача в БД
-			user := models.User{
-				UserID:   userPayload.UserID, // UUID з SSO
-				Email:    userPayload.Email,
-				Password: userPayload.Password, // Пароль зберігається, але не повертається при запитах
+			user := &models.User{
+				UserID:    userPayload.UserID,
+				Email:     userPayload.Email,
+				Password:  userPayload.Password,
+				CreatedAt: userPayload.CreatedAt,
+				UpdatedAt: userPayload.UpdatedAt,
 			}
 
-			err = storage.SaveUser(&user)
+			err = storage.SaveUser(ctx, user)
 			if err != nil {
-				log.Printf("Помилка збереження користувача в БД: %v", err)
+				log.Printf("error save user in db: %v", err)
 			} else {
-				log.Printf("Користувач %s успішно збережений", user.Email)
+				log.Printf("user %s sucssesful saved", user.Email)
 			}
 		}
 	}()

@@ -1,0 +1,73 @@
+name: GITHUB-ACTIONS
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+
+env:
+  GO_VERSION: 1.23.6
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: ~/go/pkg/mod
+          key: go-mod-${{ hashFiles('**/go.sum') }}
+          restore-keys: go-mod-
+
+      - name: Cache Go build
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/go-build
+          key: go-build-${{ github.run_id }}
+          restore-keys: go-build-
+
+      - name: Install dependencies
+        run: go mod tidy
+
+      - name: Run vulnerability check
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+      - name: Run linter
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          golangci-lint run
+
+      - name: Run tests
+        run: go test -v ./...
+
+      - name: Build application
+        run: go build -o userinfo ./cmd/main.go
+
+  deploy-mock:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Deploy mock server
+        run: echo "Mock deploy step for UserInfo (replace with actual deploy when ready)"

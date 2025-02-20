@@ -44,5 +44,5 @@ tasks:
     desc: "Build the project"
     cmds:
       - echo "Building the project..."
-      - go build -o sso cmd/main.go
+      - go build -o userinfo cmd/main.go
     silent: false
