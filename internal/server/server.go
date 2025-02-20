@@ -73,8 +73,15 @@ func (s *APIServer) GetUserByID(
 	ctx context.Context,
 	req *userinfov3.GetUserByIDRequest,
 ) (*userinfov3.UserByIDResponse, error) {
+	ctx, span := s.Tracer.Start(ctx, "server.GetUserByID")
+	defer span.End()
+
 	user, err := s.fetchUser(ctx, req.GetUserId(), lookTypeID, s.Storage.GetUserByID)
 	if err != nil {
+		s.Log.ErrorContext(ctx, "GetUserByID error",
+			slog.String("user_id", req.GetUserId()),
+			slog.String("error", err.Error()))
+		span.RecordError(err)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
@@ -88,8 +95,15 @@ func (s *APIServer) GetUserByEmail(
 	ctx context.Context,
 	req *userinfov3.GetUserByEmailRequest,
 ) (*userinfov3.UserByEmailResponse, error) {
+	ctx, span := s.Tracer.Start(ctx, "server.GetUserByEmail")
+	defer span.End()
+
 	user, err := s.fetchUser(ctx, req.GetEmail(), lookTypeEmail, s.Storage.GetUserByEmail)
 	if err != nil {
+		s.Log.ErrorContext(ctx, "GetUserByEmail error",
+			slog.String("email", req.GetEmail()),
+			slog.String("error", err.Error()))
+		span.RecordError(err)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 

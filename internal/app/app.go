@@ -40,7 +40,7 @@ func New(
 		panic(err)
 	}
 
-	conn, ch, err := rabbitmq.NewRabbitMQ()
+	conn, ch, err := rabbitmq.NewRabbitMQ(cfg)
 	if err != nil {
 		log.Error("Error creating RabbitMQ connection", "error", err)
 		panic(err)

@@ -15,6 +15,7 @@ type Config struct {
 	Tracing TracingConfig
 	GRPC    GRPCConfig
 	Otel    OtelConfig
+	Rabbit  RabbitMQConfig
 	MongoDB storage.ConfigMongo
 }
 
@@ -46,6 +47,13 @@ type OtelConfig struct {
 	ReadTimeout       time.Duration `env:"OTEL_READ_TIMEOUT" envDefault:"5s"`
 	WriteTimeout      time.Duration `env:"OTEL_WRITE_TIMEOUT" envDefault:"5s"`
 	ReadHeaderTimeout time.Duration `env:"OTEL_READ_HEADER_TIMEOUT" envDefault:"5s"`
+}
+
+type RabbitMQConfig struct {
+	User     string `env:"RABBIT_USER"`
+	Password string `env:"RABBIT_PASSWORD"`
+	Host     string `env:"RABBIT_HOST"`
+	Port     int    `env:"RABBIT_PORT"`
 }
 
 func MustLoad() *Config {
