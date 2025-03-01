@@ -3,10 +3,10 @@ package grpcapp
 import (
 	"context"
 	"fmt"
+	"github.com/vladislavprovich/user-info/internal/repository/storage"
 	"log/slog"
 	"net"
 
-	"github.com/vladislavprovich/UserInfo/internal/storage"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -17,7 +17,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 
-	"github.com/vladislavprovich/UserInfo/internal/server"
+	"github.com/vladislavprovich/user-info/internal/server"
 )
 
 type App struct {

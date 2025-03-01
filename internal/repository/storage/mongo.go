@@ -1,0 +1,77 @@
+package storage
+
+import (
+	"context"
+	"github.com/vladislavprovich/user-info/internal/repository/mongo_models"
+	"log/slog"
+	"time"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+)
+
+type UserStorage interface {
+	GetUserByID(ctx context.Context, id string) (*mongo_models.User, error)
+	GetUserByEmail(ctx context.Context, email string) (*mongo_models.User, error)
+	SaveUser(ctx context.Context, user *mongo_models.User) error
+}
+
+type MongoDBStorage struct {
+	coll *mongo.Collection
+	log  *slog.Logger
+}
+
+func NewMongoStorage(db *mongo.Database, log *slog.Logger) *MongoDBStorage {
+	return &MongoDBStorage{
+		coll: db.Collection("user"),
+		log:  log,
+	}
+}
+
+func (s *MongoDBStorage) SaveUser(ctx context.Context, user *mongo_models.User) error {
+	s.log.InfoContext(ctx, "Saving user in db")
+
+	now := time.Now()
+	user.CreatedAt = now
+	user.UpdatedAt = now
+
+	doc := bson.M{
+		"_id":        user.UserID,
+		"user_id":    user.UserID,
+		"email":      user.Email,
+		"password":   user.Password,
+		"created_at": user.CreatedAt,
+		"updated_at": user.UpdatedAt,
+	}
+
+	_, err := s.coll.InsertOne(ctx, doc)
+	if err != nil {
+		s.log.ErrorContext(ctx, "Failed to save user in db", slog.String("error", err.Error()))
+	}
+
+	return nil
+}
+
+func (s *MongoDBStorage) GetUserByID(ctx context.Context, id string) (*mongo_models.User, error) {
+	s.log.InfoContext(ctx, "Get user by ID")
+
+	var user mongo_models.User
+	err := s.coll.FindOne(ctx, bson.M{"user_id": id}).Decode(&user)
+	if err != nil {
+		s.log.ErrorContext(ctx, "Failed to find user in db", slog.String("error", err.Error()))
+	}
+
+	return &user, nil
+}
+
+func (s *MongoDBStorage) GetUserByEmail(ctx context.Context, email string) (*mongo_models.User, error) {
+	s.log.InfoContext(ctx, "Get user by email")
+
+	var user mongo_models.User
+	err := s.coll.FindOne(ctx, bson.M{"email": email}).Decode(&user)
+	if err != nil {
+		s.log.ErrorContext(ctx, "Failed to find user in db", slog.String("error", err.Error()))
+	}
+
+	return &user, nil
+}

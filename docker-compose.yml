@@ -3,7 +3,7 @@ version: '3.8'
 services:
   mongo:
     image: mongo:6.0
-    container_name: mongo
+    container_name: storage
     restart: always
     env_file:
       - .env
@@ -18,8 +18,7 @@ services:
       dockerfile: Dockerfile
     container_name: userinfoservice
     depends_on:
-      otel-lgtm-userinfo:
-        condition: service_healthy
+      - mongo
     env_file:
       - .env
     ports:
@@ -27,37 +26,18 @@ services:
     volumes:
       - ./logs:/app/logs
 
-  otel-lgtm-userinfo:
-    image: grafana/otel-lgtm:latest
-    container_name: otel-lgtm-userinfo
-    ports:
-      - "13000:3000"   # Grafana
-      - "13100:3100"   # Loki
-      - "13200:3200"   # Tempo
-      - "14317:4317"   # OTEL GRPC
-      - "14318:4318"   # OTEL HTTP
-      - "19090:9090"   # Prometheus
-    restart: unless-stopped
-    healthcheck:
-        test: [ "CMD", "curl", "-f", "http://localhost:3000/api/health" ]
-        interval: 10s
-        timeout: 5s
-        retries: 5
-
   promtail-userinfo:
     image: grafana/promtail:2.8.2
     container_name: promtail-userinfo
     restart: always
     volumes:
       - ./logs:/app/logs
-      - ./promtail-config.yml:/etc/promtail/config.yml
+      - ./config/promtail-config.yml:/etc/promtail/config.yml
     command:
       - "-config.file=/etc/promtail/config.yml"
     ports:
       - "9080:9080"
-    depends_on:
-      otel-lgtm-userinfo:
-        condition: service_healthy
+
 
 volumes:
   mongo_data:

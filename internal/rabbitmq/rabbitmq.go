@@ -1,35 +1,55 @@
 package rabbitmq
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
 	"strconv"
+	"time"
 
-	"github.com/vladislavprovich/UserInfo/config"
-
+	"github.com/cenkalti/backoff/v4"
 	"github.com/streadway/amqp"
+	"github.com/vladislavprovich/user-info/config"
 )
 
-func NewRabbitMQ(cfg *config.Config) (*amqp.Connection, *amqp.Channel, error) {
+// NewRabbitMQ створює підключення до RabbitMQ з ретраями
+func NewRabbitMQ(ctx context.Context, cfg *config.Config) (*amqp.Connection, error) {
 	hostAndPort := net.JoinHostPort(cfg.Rabbit.Host, strconv.Itoa(cfg.Rabbit.Port))
-	rabbitURL := fmt.Sprintf("amqp://%s:%s@%s/",
+	rabbitURL := fmt.Sprintf(
+		"amqp://%s:%s@%s/",
 		cfg.Rabbit.User,
 		cfg.Rabbit.Password,
-		hostAndPort,
-	)
+		hostAndPort)
 
-	conn, err := amqp.Dial(rabbitURL)
+	var conn *amqp.Connection
+	bo := backoff.NewExponentialBackOff()
+	bo.MaxElapsedTime = 30 * time.Second // Час на ретраї
+	maxRetries := 10
+
+	err := backoff.Retry(func() error {
+		var err error
+		conn, err = amqp.Dial(rabbitURL)
+		if err != nil {
+			log.Printf("Failed to connect to RabbitMQ: %v. Retrying...", err)
+			return err
+		}
+		return nil
+	}, backoff.WithMaxRetries(bo, uint64(maxRetries)))
+
 	if err != nil {
-		log.Fatalf("Error connect to RabbitMQ: %v", err)
-		return nil, nil, err
+		return nil, fmt.Errorf("could not establish RabbitMQ connection: %w", err)
 	}
 
-	ch, err := conn.Channel()
-	if err != nil {
-		log.Fatalf("Error creating chan: %v", err)
-		return nil, nil, err
-	}
+	log.Println("Connected to RabbitMQ")
 
-	return conn, ch, nil
+	go func() {
+		<-ctx.Done()
+		if err := conn.Close(); err != nil {
+			log.Println("Error closing RabbitMQ connection:", err)
+		}
+		log.Println("RabbitMQ connection closed")
+	}()
+
+	return conn, nil
 }

@@ -2,20 +2,18 @@ package main
 
 import (
 	"context"
+	"github.com/vladislavprovich/user-info/pkg/logger/slogpretty"
+	"github.com/vladislavprovich/user-info/pkg/telemetry"
 	"io"
 	"path/filepath"
 
-	"github.com/vladislavprovich/UserInfo/config"
-	app "github.com/vladislavprovich/UserInfo/internal/app"
-	"github.com/vladislavprovich/UserInfo/lib/logger/slogpretty"
-
+	"github.com/vladislavprovich/user-info/config"
+	app "github.com/vladislavprovich/user-info/internal/app"
 	log2 "log"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
-
-	"github.com/vladislavprovich/UserInfo/lib/telemetry"
 )
 
 const (
@@ -26,7 +24,8 @@ const (
 
 func main() {
 	cfg := config.MustLoad()
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	log := setupLogger(ctx, cfg)
 
 	// Init logs directory.
@@ -58,7 +57,7 @@ func main() {
 		}
 	}()
 
-	application := app.New(log, cfg, tracerProvider)
+	application := app.New(ctx, log, cfg, tracerProvider)
 
 	go application.GRPCSrv.Run()
 
@@ -70,6 +69,7 @@ func main() {
 	log.Info("stopping application", slog.String("signal", sign.String()))
 	application.GRPCSrv.Stop()
 
+	Shutdown(ctx, application, log)
 	log.Info("application stopped")
 }
 
@@ -100,4 +100,28 @@ func setupLogger(ctx context.Context, cfg *config.Config) *slog.Logger {
 	}
 
 	return log
+}
+
+func Shutdown(ctx context.Context, application *app.App, log *slog.Logger) {
+	if application.RMQConn != nil {
+		if err := application.RMQConn.Close(); err != nil {
+			log.ErrorContext(ctx, "failed to close RabbitMQ connection", slog.String("error", err.Error()))
+		}
+	}
+
+	if application.Publisher != nil {
+		if err := application.Publisher.Channel.Close(); err != nil {
+			log.ErrorContext(ctx, "failed to close RabbitMQ publisher channel", slog.String("error", err.Error()))
+		}
+	}
+
+	if application.Consumer != nil {
+		if err := application.Consumer.Channel.Close(); err != nil {
+			log.ErrorContext(ctx, "failed to close RabbitMQ consumer channel", slog.String("error", err.Error()))
+		}
+	}
+
+	if application.GRPCSrv != nil {
+		application.GRPCSrv.Stop()
+	}
 }

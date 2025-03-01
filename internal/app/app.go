@@ -1,68 +1,71 @@
 package app
 
 import (
-	"fmt"
-	"log/slog"
-	"net"
-	"strconv"
-
+	"context"
 	"github.com/streadway/amqp"
-	"github.com/vladislavprovich/UserInfo/internal/rabbitmq"
+	"github.com/vladislavprovich/user-info/internal/rabbitmq"
+	"github.com/vladislavprovich/user-info/internal/repository"
+	"github.com/vladislavprovich/user-info/internal/repository/storage"
+	"log/slog"
 
-	"github.com/vladislavprovich/UserInfo/config"
-	grpcapp "github.com/vladislavprovich/UserInfo/internal/app/grpc"
-	"github.com/vladislavprovich/UserInfo/internal/storage"
+	"github.com/vladislavprovich/user-info/config"
+	grpcapp "github.com/vladislavprovich/user-info/internal/app/grpc"
 	"go.opentelemetry.io/otel/trace"
 )
 
 type App struct {
-	GRPCSrv *grpcapp.App
-	RMQConn *amqp.Connection
+	GRPCSrv   *grpcapp.App
+	RMQConn   *amqp.Connection
+	Publisher *rabbitmq.Publisher
+	Consumer  *rabbitmq.Consumer
 }
 
 func New(
+	ctx context.Context,
 	log *slog.Logger,
 	cfg *config.Config,
 	trace trace.TracerProvider,
 ) *App {
-	hostAndPort := net.JoinHostPort(cfg.MongoDB.Host, strconv.Itoa(cfg.MongoDB.Port))
-	mongoURL := fmt.Sprintf("mongodb://%s:%s@%s/%s?authSource=%s",
-		cfg.MongoDB.User,
-		cfg.MongoDB.Password,
-		hostAndPort,
-		cfg.MongoDB.Database,
-		cfg.MongoDB.AuthSource,
-	)
-
-	db, err := storage.NewMongoDB(mongoURL, cfg.MongoDB.Database)
+	// Connect MongoDB.
+	mongoFactory, err := repository.NewMongo(cfg.MongoDB)
 	if err != nil {
-		log.Error("Error creating MongoDB storage", "error", err)
+		log.Error("Failed to connect to MongoDB", "error", err)
 		panic(err)
 	}
 
-	conn, ch, err := rabbitmq.NewRabbitMQ(cfg)
+	db := storage.NewMongoStorage(mongoFactory.DB, log)
+
+	// Connect RabbitMQ.
+	conn, err := rabbitmq.NewRabbitMQ(ctx, cfg)
 	if err != nil {
 		log.Error("Error creating RabbitMQ connection", "error", err)
 		panic(err)
 	}
 
-	go rabbitmq.StartConsumer(ch, db)
+	// Connect Publisher.
+	publisher, err := rabbitmq.NewPublisher(conn, cfg.Rabbit.ExchangeName)
+	if err != nil {
+		log.Error("Error creating RabbitMQ Publisher", "error", err)
+		panic(err)
+	}
 
+	// Connect Consumer.
+	consumer, err := rabbitmq.NewConsumer(conn, cfg.Rabbit.QueueName)
+	if err != nil {
+		log.Error("Error creating RabbitMQ Consumer", "error", err)
+		panic(err)
+	}
+
+	// Start Consumer on gorutine.
+	go consumer.StartConsumer(ctx, db)
+
+	// Init gRPC-server.
 	grpcApp := grpcapp.New(log, cfg.GRPC.PortGRPC, trace.Tracer(cfg.Tracing.NameSpase), db)
 
 	return &App{
-		GRPCSrv: grpcApp,
-		RMQConn: conn,
-	}
-}
-
-func (a *App) Shutdown() {
-	if a.RMQConn != nil {
-		defer func() {
-			err := a.RMQConn.Close()
-			if err != nil {
-				panic(err)
-			}
-		}()
+		GRPCSrv:   grpcApp,
+		RMQConn:   conn,
+		Publisher: publisher,
+		Consumer:  consumer,
 	}
 }

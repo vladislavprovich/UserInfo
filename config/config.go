@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
-	"github.com/vladislavprovich/UserInfo/internal/storage"
+	"github.com/vladislavprovich/user-info/internal/repository"
 )
 
 type Config struct {
@@ -16,7 +16,7 @@ type Config struct {
 	GRPC    GRPCConfig
 	Otel    OtelConfig
 	Rabbit  RabbitMQConfig
-	MongoDB storage.ConfigMongo
+	MongoDB repository.ConfigMongo
 }
 
 type LoggerConfig struct {
@@ -50,10 +50,12 @@ type OtelConfig struct {
 }
 
 type RabbitMQConfig struct {
-	User     string `env:"RABBIT_USER"`
-	Password string `env:"RABBIT_PASSWORD"`
-	Host     string `env:"RABBIT_HOST"`
-	Port     int    `env:"RABBIT_PORT"`
+	User         string `env:"RABBIT_USER"`
+	Password     string `env:"RABBIT_PASSWORD"`
+	Host         string `env:"RABBIT_HOST"`
+	Port         int    `env:"RABBIT_PORT"`
+	QueueName    string `env:"RABBIT_QUEUE_NAME"`
+	ExchangeName string `env:"RABBIT_EXCHANGE_NAME"`
 }
 
 func MustLoad() *Config {

@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/vladislavprovich/UserInfo/config"
+	"github.com/vladislavprovich/user-info/config"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 

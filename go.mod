@@ -1,4 +1,4 @@
-module github.com/vladislavprovich/UserInfo
+module github.com/vladislavprovich/user-info
 
 go 1.23.6
 
@@ -11,7 +11,7 @@ require (
 	github.com/prometheus/client_golang v1.20.5
 	github.com/streadway/amqp v1.1.0
 	github.com/stretchr/testify v1.10.0
-	github.com/vladislavprovich/protobufContract v0.0.3
+	github.com/vladislavprovich/protobuf-contract v0.0.5
 	go.mongodb.org/mongo-driver v1.17.2
 	go.opentelemetry.io/otel v1.34.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.34.0

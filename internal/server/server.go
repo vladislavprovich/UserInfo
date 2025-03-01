@@ -3,12 +3,13 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/vladislavprovich/user-info/internal/models"
+	"github.com/vladislavprovich/user-info/internal/repository/mongo_models"
+	"github.com/vladislavprovich/user-info/internal/repository/storage"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"log/slog"
 
-	"github.com/vladislavprovich/UserInfo/internal/models"
-
-	"github.com/vladislavprovich/UserInfo/internal/storage"
-	userinfov3 "github.com/vladislavprovich/protobufContract/gen/go/userinfo"
+	userinfo "github.com/vladislavprovich/protobuf-contract/gen/go/userinfo"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
@@ -20,31 +21,32 @@ const (
 )
 
 type Server interface {
-	GetUserByID(ctx context.Context, req *userinfov3.GetUserByIDRequest) (*userinfov3.UserByIDResponse, error)
-	GetUserByEmail(ctx context.Context, req *userinfov3.GetUserByEmailRequest) (*userinfov3.UserByEmailResponse, error)
+	GetUserByID(ctx context.Context, req *userinfo.GetUserByIDRequest) (*userinfo.UserByIDResponse, error)
+	GetUserByEmail(ctx context.Context, req *userinfo.GetUserByEmailRequest) (*userinfo.UserByEmailResponse, error)
 }
 
 type APIServer struct {
-	userinfov3.UnimplementedUserInfoServiceServer
-	Server  Server
-	Storage storage.UserStorage
-	Log     *slog.Logger
-	Tracer  trace.Tracer
+	userinfo.UnimplementedUserInfoServiceServer
+	Server    Server
+	Storage   storage.UserStorage
+	Log       *slog.Logger
+	Tracer    trace.Tracer
+	convector *ConvertToStorage
 }
 
 func Register(gRPC *grpc.Server, tracer trace.Tracer, log *slog.Logger, storage storage.UserStorage) {
-	userinfov3.RegisterUserInfoServiceServer(gRPC, &APIServer{
-		Storage: storage,
-		Log:     log,
-		Tracer:  tracer,
+	userinfo.RegisterUserInfoServiceServer(gRPC, &APIServer{
+		Storage:   storage,
+		Log:       log,
+		Tracer:    tracer,
+		convector: NewConvertToStorage(),
 	})
 }
 
-func (s *APIServer) fetchUser(
+func (s *APIServer) definitionReqForUser(
 	ctx context.Context,
 	lookupValue string,
 	lookupType string,
-	fetchFunc func(context.Context, string) (*models.User, error),
 ) (*models.User, error) {
 	s.Log.InfoContext(ctx, fmt.Sprintf("Call GetUserBy%s", lookupType), slog.String(lookupType, lookupValue))
 
@@ -53,28 +55,43 @@ func (s *APIServer) fetchUser(
 
 	span.SetAttributes(attribute.String(lookupType, lookupValue))
 
-	user, err := fetchFunc(ctx, lookupValue)
+	var (
+		userMongoModels *mongo_models.User
+		err             error
+	)
+	switch lookupType {
+	case lookTypeID:
+		userMongoModels, err = s.Storage.GetUserByID(ctx, lookupValue)
+		s.Log.InfoContext(ctx, "Search by id + mongoModels", slog.Any("userMongo", userMongoModels))
+	case lookTypeEmail:
+		userMongoModels, err = s.Storage.GetUserByEmail(ctx, lookupValue)
+		s.Log.InfoContext(ctx, "Search by email + mongoModels", slog.Any("userMongo", userMongoModels))
+	default:
+		return nil, fmt.Errorf("invalid lookup type: %s", lookupType)
+	}
+
 	if err != nil {
 		s.Log.WarnContext(ctx, fmt.Sprintf("GetUserBy%s error", lookupType),
 			slog.String(lookupType, lookupValue),
 			slog.String("error", err.Error()),
 		)
 		span.RecordError(err)
-
 		return nil, fmt.Errorf("get user by %s error: %w", lookupType, err)
 	}
+
+	user := s.convector.ConvectorMongoModelsToUserModels(userMongoModels)
 
 	return user, nil
 }
 
 func (s *APIServer) GetUserByID(
 	ctx context.Context,
-	req *userinfov3.GetUserByIDRequest,
-) (*userinfov3.UserByIDResponse, error) {
+	req *userinfo.GetUserByIDRequest,
+) (*userinfo.UserByIDResponse, error) {
 	ctx, span := s.Tracer.Start(ctx, "server.GetUserByID")
 	defer span.End()
 
-	user, err := s.fetchUser(ctx, req.GetUserId(), lookTypeID, s.Storage.GetUserByID)
+	user, err := s.definitionReqForUser(ctx, req.GetUserId(), lookTypeID)
 	if err != nil {
 		s.Log.ErrorContext(ctx, "GetUserByID error",
 			slog.String("user_id", req.GetUserId()),
@@ -83,20 +100,22 @@ func (s *APIServer) GetUserByID(
 		return nil, err
 	}
 
-	return &userinfov3.UserByIDResponse{
-		UserId: user.UserID,
-		Email:  user.Email,
+	return &userinfo.UserByIDResponse{
+		UserId:    user.UserID,
+		Email:     user.Email,
+		CreatedAt: timestamppb.New(user.CreatedAt),
+		UpdatedAt: timestamppb.New(user.UpdatedAt),
 	}, nil
 }
 
 func (s *APIServer) GetUserByEmail(
 	ctx context.Context,
-	req *userinfov3.GetUserByEmailRequest,
-) (*userinfov3.UserByEmailResponse, error) {
+	req *userinfo.GetUserByEmailRequest,
+) (*userinfo.UserByEmailResponse, error) {
 	ctx, span := s.Tracer.Start(ctx, "server.GetUserByEmail")
 	defer span.End()
 
-	user, err := s.fetchUser(ctx, req.GetEmail(), lookTypeEmail, s.Storage.GetUserByEmail)
+	user, err := s.definitionReqForUser(ctx, req.GetEmail(), lookTypeEmail)
 	if err != nil {
 		s.Log.ErrorContext(ctx, "GetUserByEmail error",
 			slog.String("email", req.GetEmail()),
@@ -105,8 +124,10 @@ func (s *APIServer) GetUserByEmail(
 		return nil, err
 	}
 
-	return &userinfov3.UserByEmailResponse{
-		UserId: user.UserID,
-		Email:  user.Email,
+	return &userinfo.UserByEmailResponse{
+		UserId:    user.UserID,
+		Email:     user.Email,
+		CreatedAt: timestamppb.New(user.CreatedAt),
+		UpdatedAt: timestamppb.New(user.UpdatedAt),
 	}, nil
 }
