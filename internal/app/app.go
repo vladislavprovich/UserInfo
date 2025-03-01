@@ -50,7 +50,7 @@ func New(
 	}
 
 	// Connect Consumer.
-	consumer, err := rabbitmq.NewConsumer(conn, cfg.Rabbit.QueueName)
+	consumer, err := rabbitmq.NewConsumer(conn, cfg.Rabbit.QueueName, cfg.Rabbit.CacheTTL)
 	if err != nil {
 		log.Error("Error creating RabbitMQ Consumer", "error", err)
 		panic(err)

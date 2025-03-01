@@ -50,12 +50,13 @@ type OtelConfig struct {
 }
 
 type RabbitMQConfig struct {
-	User         string `env:"RABBIT_USER"`
-	Password     string `env:"RABBIT_PASSWORD"`
-	Host         string `env:"RABBIT_HOST"`
-	Port         int    `env:"RABBIT_PORT"`
-	QueueName    string `env:"RABBIT_QUEUE_NAME"`
-	ExchangeName string `env:"RABBIT_EXCHANGE_NAME"`
+	User         string        `env:"RABBIT_USER"`
+	Password     string        `env:"RABBIT_PASSWORD"`
+	Host         string        `env:"RABBIT_HOST"`
+	Port         int           `env:"RABBIT_PORT"`
+	QueueName    string        `env:"RABBIT_QUEUE_NAME"`
+	CacheTTL     time.Duration `env:"RABBIT_CACHE_TTL"`
+	ExchangeName string        `env:"RABBIT_EXCHANGE_NAME"`
 }
 
 func MustLoad() *Config {
