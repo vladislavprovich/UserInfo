@@ -2,18 +2,20 @@ package main
 
 import (
 	"context"
-	"github.com/vladislavprovich/user-info/pkg/logger/slogpretty"
-	"github.com/vladislavprovich/user-info/pkg/telemetry"
 	"io"
 	"path/filepath"
 
-	"github.com/vladislavprovich/user-info/config"
-	app "github.com/vladislavprovich/user-info/internal/app"
+	"github.com/vladislavprovich/user-info/pkg/logger/slogpretty"
+	"github.com/vladislavprovich/user-info/pkg/telemetry"
+
 	log2 "log"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/vladislavprovich/user-info/config"
+	app "github.com/vladislavprovich/user-info/internal/app"
 )
 
 const (
@@ -34,7 +36,6 @@ func main() {
 		log.Error("failed to ensure log dir",
 			slog.String("dir", cfg.Logging.LogDir),
 			slog.String("error ", err.Error()))
-		os.Exit(1)
 	}
 
 	log.Info("starting application",

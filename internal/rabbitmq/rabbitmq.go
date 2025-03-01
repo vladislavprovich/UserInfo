@@ -6,14 +6,13 @@ import (
 	"log"
 	"net"
 	"strconv"
-	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/streadway/amqp"
 	"github.com/vladislavprovich/user-info/config"
 )
 
-// NewRabbitMQ створює підключення до RabbitMQ з ретраями
+// NewRabbitMQ connect to RabbitMQ with repetitions.
 func NewRabbitMQ(ctx context.Context, cfg *config.Config) (*amqp.Connection, error) {
 	hostAndPort := net.JoinHostPort(cfg.Rabbit.Host, strconv.Itoa(cfg.Rabbit.Port))
 	rabbitURL := fmt.Sprintf(
@@ -24,8 +23,8 @@ func NewRabbitMQ(ctx context.Context, cfg *config.Config) (*amqp.Connection, err
 
 	var conn *amqp.Connection
 	bo := backoff.NewExponentialBackOff()
-	bo.MaxElapsedTime = 30 * time.Second // Час на ретраї
-	maxRetries := 10
+	bo.MaxElapsedTime = cfg.Rabbit.MaxElapsedTime // Time to retries.
+	maxRetries := cfg.Rabbit.MaxRetries
 
 	err := backoff.Retry(func() error {
 		var err error
@@ -35,7 +34,7 @@ func NewRabbitMQ(ctx context.Context, cfg *config.Config) (*amqp.Connection, err
 			return err
 		}
 		return nil
-	}, backoff.WithMaxRetries(bo, uint64(maxRetries)))
+	}, backoff.WithMaxRetries(bo, maxRetries))
 
 	if err != nil {
 		return nil, fmt.Errorf("could not establish RabbitMQ connection: %w", err)
@@ -45,7 +44,7 @@ func NewRabbitMQ(ctx context.Context, cfg *config.Config) (*amqp.Connection, err
 
 	go func() {
 		<-ctx.Done()
-		if err := conn.Close(); err != nil {
+		if err = conn.Close(); err != nil {
 			log.Println("Error closing RabbitMQ connection:", err)
 		}
 		log.Println("RabbitMQ connection closed")

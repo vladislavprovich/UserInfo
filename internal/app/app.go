@@ -2,11 +2,12 @@ package app
 
 import (
 	"context"
+	"log/slog"
+
 	"github.com/streadway/amqp"
 	"github.com/vladislavprovich/user-info/internal/rabbitmq"
 	"github.com/vladislavprovich/user-info/internal/repository"
 	"github.com/vladislavprovich/user-info/internal/repository/storage"
-	"log/slog"
 
 	"github.com/vladislavprovich/user-info/config"
 	grpcapp "github.com/vladislavprovich/user-info/internal/app/grpc"
@@ -29,7 +30,7 @@ func New(
 	// Connect MongoDB.
 	mongoFactory, err := repository.NewMongo(cfg.MongoDB)
 	if err != nil {
-		log.Error("Failed to connect to MongoDB", "error", err)
+		log.ErrorContext(ctx, "Failed to connect to MongoDB", slog.Any("error", err))
 		panic(err)
 	}
 
@@ -38,21 +39,21 @@ func New(
 	// Connect RabbitMQ.
 	conn, err := rabbitmq.NewRabbitMQ(ctx, cfg)
 	if err != nil {
-		log.Error("Error creating RabbitMQ connection", "error", err)
+		log.ErrorContext(ctx, "Error creating RabbitMQ connection", slog.Any("error", err))
 		panic(err)
 	}
 
 	// Connect Publisher.
 	publisher, err := rabbitmq.NewPublisher(conn, cfg.Rabbit.ExchangeName)
 	if err != nil {
-		log.Error("Error creating RabbitMQ Publisher", "error", err)
+		log.ErrorContext(ctx, "Error creating RabbitMQ Publisher", slog.Any("error", err))
 		panic(err)
 	}
 
 	// Connect Consumer.
 	consumer, err := rabbitmq.NewConsumer(conn, cfg.Rabbit.QueueName, cfg.Rabbit.CacheTTL)
 	if err != nil {
-		log.Error("Error creating RabbitMQ Consumer", "error", err)
+		log.ErrorContext(ctx, "Error creating RabbitMQ Consumer", slog.Any("error", err))
 		panic(err)
 	}
 

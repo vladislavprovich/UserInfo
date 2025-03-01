@@ -6,39 +6,43 @@ import (
 	"testing"
 	"time"
 
-	"go.opentelemetry.io/otel/trace/noop"
-
-	"github.com/stretchr/testify/require"
-	"github.com/vladislavprovich/UserInfo/internal/server"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"log/slog"
 
+	"go.opentelemetry.io/otel/trace/noop"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/vladislavprovich/UserInfo/internal/models"
-	userinfov3 "github.com/vladislavprovich/protobufContract/gen/go/userinfo"
+	"github.com/stretchr/testify/require"
+
+	userinfo "github.com/vladislavprovich/protobuf-contract/gen/go/userinfo"
+	"github.com/vladislavprovich/user-info/internal/repository/mongomodels"
+	"github.com/vladislavprovich/user-info/internal/server"
 )
 
 type MockStorage struct {
 	mock.Mock
 }
 
-func (m *MockStorage) SaveUser(ctx context.Context, user *models.User) error {
+func (m *MockStorage) SaveUser(ctx context.Context, user *mongomodels.User) error {
 	args := m.Called(ctx, user)
 	return args.Error(0)
 }
 
-func (m *MockStorage) GetUserByID(ctx context.Context, id string) (*models.User, error) {
+func (m *MockStorage) GetUserByID(ctx context.Context, id string) (*mongomodels.User, error) {
 	args := m.Called(ctx, id)
-	if user, ok := args.Get(0).(*models.User); ok {
+	if user, ok := args.Get(0).(*mongomodels.User); ok {
 		return user, args.Error(1)
 	}
 	return nil, args.Error(1)
 }
 
-func (m *MockStorage) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
+func (m *MockStorage) GetUserByEmail(ctx context.Context, email string) (*mongomodels.User, error) {
 	args := m.Called(ctx, email)
-	if user, ok := args.Get(0).(*models.User); ok {
+	if user, ok := args.Get(0).(*mongomodels.User); ok {
 		return user, args.Error(1)
 	}
 	return nil, args.Error(1)
@@ -55,28 +59,34 @@ func TestGetUserByID(t *testing.T) {
 		Tracer:  tracer,
 	}
 
+	now := time.Now()
+
 	tests := []struct {
 		name          string
 		userID        string
-		mockReturn    *models.User
+		mockReturn    *mongomodels.User
 		mockError     error
-		expectedResp  *userinfov3.UserByIDResponse
+		expectedResp  *userinfo.UserByIDResponse
+		expectedCode  codes.Code
 		expectedError string
 	}{
 		{
 			name:   "User found",
 			userID: "123",
-			mockReturn: &models.User{
+			mockReturn: &mongomodels.User{
 				UserID:    "123",
 				Email:     "test@example.com",
-				CreatedAt: time.Now(),
-				UpdatedAt: time.Now(),
+				CreatedAt: now,
+				UpdatedAt: now,
 			},
 			mockError: nil,
-			expectedResp: &userinfov3.UserByIDResponse{
-				UserId: "123",
-				Email:  "test@example.com",
+			expectedResp: &userinfo.UserByIDResponse{
+				UserId:    "123",
+				Email:     "test@example.com",
+				CreatedAt: timestamppb.New(now),
+				UpdatedAt: timestamppb.New(now),
 			},
+			expectedCode:  codes.OK,
 			expectedError: "",
 		},
 		{
@@ -85,7 +95,8 @@ func TestGetUserByID(t *testing.T) {
 			mockReturn:    nil,
 			mockError:     errors.New("user not found"),
 			expectedResp:  nil,
-			expectedError: "get user by user_id error: user not found",
+			expectedCode:  codes.Unknown,
+			expectedError: "user not found",
 		},
 		{
 			name:          "Database error",
@@ -93,7 +104,8 @@ func TestGetUserByID(t *testing.T) {
 			mockReturn:    nil,
 			mockError:     errors.New("database connection error"),
 			expectedResp:  nil,
-			expectedError: "get user by user_id error: database connection error",
+			expectedCode:  codes.Unknown,
+			expectedError: "database connection error",
 		},
 	}
 
@@ -101,13 +113,15 @@ func TestGetUserByID(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockStorage.On("GetUserByID", mock.Anything, tt.userID).Return(tt.mockReturn, tt.mockError)
 
-			req := &userinfov3.GetUserByIDRequest{UserId: tt.userID}
+			req := &userinfo.GetUserByIDRequest{UserId: tt.userID}
 			resp, err := server.GetUserByID(context.Background(), req)
 
 			assert.Equal(t, tt.expectedResp, resp)
 
 			if tt.expectedError != "" {
-				require.EqualError(t, err, tt.expectedError)
+				st, _ := status.FromError(err)
+				assert.Equal(t, tt.expectedCode, st.Code())
+				assert.Contains(t, st.Message(), tt.expectedError)
 			} else {
 				require.NoError(t, err)
 			}
@@ -128,28 +142,34 @@ func TestGetUserByEmail(t *testing.T) {
 		Tracer:  tracer,
 	}
 
+	now := time.Now()
+
 	tests := []struct {
 		name          string
 		email         string
-		mockReturn    *models.User
+		mockReturn    *mongomodels.User
 		mockError     error
-		expectedResp  *userinfov3.UserByEmailResponse
+		expectedResp  *userinfo.UserByEmailResponse
+		expectedCode  codes.Code
 		expectedError string
 	}{
 		{
 			name:  "User found",
 			email: "test@example.com",
-			mockReturn: &models.User{
+			mockReturn: &mongomodels.User{
 				UserID:    "123",
 				Email:     "test@example.com",
-				CreatedAt: time.Now(),
-				UpdatedAt: time.Now(),
+				CreatedAt: now,
+				UpdatedAt: now,
 			},
 			mockError: nil,
-			expectedResp: &userinfov3.UserByEmailResponse{
-				UserId: "123",
-				Email:  "test@example.com",
+			expectedResp: &userinfo.UserByEmailResponse{
+				UserId:    "123",
+				Email:     "test@example.com",
+				CreatedAt: timestamppb.New(now),
+				UpdatedAt: timestamppb.New(now),
 			},
+			expectedCode:  codes.OK,
 			expectedError: "",
 		},
 		{
@@ -158,7 +178,8 @@ func TestGetUserByEmail(t *testing.T) {
 			mockReturn:    nil,
 			mockError:     errors.New("user not found"),
 			expectedResp:  nil,
-			expectedError: "get user by email error: user not found",
+			expectedCode:  codes.Unknown,
+			expectedError: "user not found",
 		},
 		{
 			name:          "Database error",
@@ -166,7 +187,8 @@ func TestGetUserByEmail(t *testing.T) {
 			mockReturn:    nil,
 			mockError:     errors.New("database error"),
 			expectedResp:  nil,
-			expectedError: "get user by email error: database error",
+			expectedCode:  codes.Unknown,
+			expectedError: "database error",
 		},
 	}
 
@@ -174,13 +196,15 @@ func TestGetUserByEmail(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockStorage.On("GetUserByEmail", mock.Anything, tt.email).Return(tt.mockReturn, tt.mockError)
 
-			req := &userinfov3.GetUserByEmailRequest{Email: tt.email}
+			req := &userinfo.GetUserByEmailRequest{Email: tt.email}
 			resp, err := server.GetUserByEmail(context.Background(), req)
 
 			assert.Equal(t, tt.expectedResp, resp)
 
 			if tt.expectedError != "" {
-				require.EqualError(t, err, tt.expectedError)
+				st, _ := status.FromError(err)
+				assert.Equal(t, tt.expectedCode, st.Code())
+				assert.Contains(t, st.Message(), tt.expectedError)
 			} else {
 				require.NoError(t, err)
 			}

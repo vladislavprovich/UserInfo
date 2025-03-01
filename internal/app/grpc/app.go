@@ -3,9 +3,10 @@ package grpcapp
 import (
 	"context"
 	"fmt"
-	"github.com/vladislavprovich/user-info/internal/repository/storage"
 	"log/slog"
 	"net"
+
+	"github.com/vladislavprovich/user-info/internal/repository/storage"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

@@ -3,11 +3,12 @@ package server
 import (
 	"context"
 	"fmt"
+	"log/slog"
+
 	"github.com/vladislavprovich/user-info/internal/models"
-	"github.com/vladislavprovich/user-info/internal/repository/mongo_models"
+	"github.com/vladislavprovich/user-info/internal/repository/mongomodels"
 	"github.com/vladislavprovich/user-info/internal/repository/storage"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"log/slog"
 
 	userinfo "github.com/vladislavprovich/protobuf-contract/gen/go/userinfo"
 	"go.opentelemetry.io/otel/attribute"
@@ -56,7 +57,7 @@ func (s *APIServer) definitionReqForUser(
 	span.SetAttributes(attribute.String(lookupType, lookupValue))
 
 	var (
-		userMongoModels *mongo_models.User
+		userMongoModels *mongomodels.User
 		err             error
 	)
 	switch lookupType {

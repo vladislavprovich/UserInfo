@@ -2,18 +2,19 @@ package storage
 
 import (
 	"context"
-	"github.com/vladislavprovich/user-info/internal/repository/mongo_models"
 	"log/slog"
 	"time"
+
+	"github.com/vladislavprovich/user-info/internal/repository/mongomodels"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type UserStorage interface {
-	GetUserByID(ctx context.Context, id string) (*mongo_models.User, error)
-	GetUserByEmail(ctx context.Context, email string) (*mongo_models.User, error)
-	SaveUser(ctx context.Context, user *mongo_models.User) error
+	GetUserByID(ctx context.Context, id string) (*mongomodels.User, error)
+	GetUserByEmail(ctx context.Context, email string) (*mongomodels.User, error)
+	SaveUser(ctx context.Context, user *mongomodels.User) error
 }
 
 type MongoDBStorage struct {
@@ -28,7 +29,7 @@ func NewMongoStorage(db *mongo.Database, log *slog.Logger) *MongoDBStorage {
 	}
 }
 
-func (s *MongoDBStorage) SaveUser(ctx context.Context, user *mongo_models.User) error {
+func (s *MongoDBStorage) SaveUser(ctx context.Context, user *mongomodels.User) error {
 	s.log.InfoContext(ctx, "Saving user in db")
 
 	now := time.Now()
@@ -52,10 +53,10 @@ func (s *MongoDBStorage) SaveUser(ctx context.Context, user *mongo_models.User) 
 	return nil
 }
 
-func (s *MongoDBStorage) GetUserByID(ctx context.Context, id string) (*mongo_models.User, error) {
+func (s *MongoDBStorage) GetUserByID(ctx context.Context, id string) (*mongomodels.User, error) {
 	s.log.InfoContext(ctx, "Get user by ID")
 
-	var user mongo_models.User
+	var user mongomodels.User
 	err := s.coll.FindOne(ctx, bson.M{"user_id": id}).Decode(&user)
 	if err != nil {
 		s.log.ErrorContext(ctx, "Failed to find user in db", slog.String("error", err.Error()))
@@ -64,10 +65,10 @@ func (s *MongoDBStorage) GetUserByID(ctx context.Context, id string) (*mongo_mod
 	return &user, nil
 }
 
-func (s *MongoDBStorage) GetUserByEmail(ctx context.Context, email string) (*mongo_models.User, error) {
+func (s *MongoDBStorage) GetUserByEmail(ctx context.Context, email string) (*mongomodels.User, error) {
 	s.log.InfoContext(ctx, "Get user by email")
 
-	var user mongo_models.User
+	var user mongomodels.User
 	err := s.coll.FindOne(ctx, bson.M{"email": email}).Decode(&user)
 	if err != nil {
 		s.log.ErrorContext(ctx, "Failed to find user in db", slog.String("error", err.Error()))
