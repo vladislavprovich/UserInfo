@@ -25,12 +25,11 @@ type Consumer struct {
 }
 
 // NewConsumer creates a new consumer and initializes the cache.
-func NewConsumer(conn *amqp.Connection, queue string, cacheTTL time.Duration) (*Consumer, error) {
+func NewConsumer(conn *amqp.Connection, queue string, cacheTTL time.Duration, log *slog.Logger) (*Consumer, error) {
 	ch, err := conn.Channel()
 	if err != nil {
 		return nil, err
 	}
-
 	// Declare the queue if it doesn't exist yet.
 	_, err = ch.QueueDeclare(
 		queue, // Queue name.
@@ -48,6 +47,7 @@ func NewConsumer(conn *amqp.Connection, queue string, cacheTTL time.Duration) (*
 		Channel:  ch,
 		Queue:    queue,
 		cacheTTL: cacheTTL,
+		log:      log,
 	}, nil
 }
 

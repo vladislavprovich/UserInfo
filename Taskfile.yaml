@@ -9,6 +9,14 @@ tasks:
     ignore_error: true
     silent: false
 
+  start-consumer:
+    desc: "Start the consumer service"
+    cmds:
+      - echo "Starting consumer service..."
+      - go run cmd/consumer/main.go --config=./.env
+    ignore_error: true
+    silent: false
+
   lint:
     desc: "Run Go linters"
     cmds:
