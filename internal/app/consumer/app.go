@@ -8,7 +8,6 @@ import (
 	"github.com/streadway/amqp"
 	"github.com/vladislavprovich/user-info/config"
 	"github.com/vladislavprovich/user-info/internal/rabbitmq"
-	"github.com/vladislavprovich/user-info/internal/repository"
 	"github.com/vladislavprovich/user-info/internal/repository/storage"
 )
 
@@ -17,11 +16,12 @@ type AppConsumer struct {
 	RMQConn  *amqp.Connection
 	Storage  storage.UserStorage
 	Log      *slog.Logger
+	cfg      *config.Config
 }
 
 func New(ctx context.Context, log *slog.Logger, cfg *config.Config) *AppConsumer {
 	// Connect MongoDB.
-	mongoFactory, err := repository.NewMongo(cfg.MongoDB)
+	mongoFactory, err := storage.NewMongo(cfg.MongoDB)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to connect to MongoDB", slog.Any("error", err))
 		panic(err)
@@ -37,7 +37,7 @@ func New(ctx context.Context, log *slog.Logger, cfg *config.Config) *AppConsumer
 	}
 
 	// Connect consumer.
-	consumer, err := rabbitmq.NewConsumer(conn, cfg.Rabbit.QueueName, cfg.Rabbit.CacheTTL, log)
+	consumer, err := rabbitmq.NewConsumer(conn, cfg, log)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to create RabbitMQ Consumer", slog.Any("error", err))
 		panic(err)
@@ -58,7 +58,7 @@ func (c *AppConsumer) Run(ctx context.Context, storage storage.UserStorage) {
 		os.Exit(1)
 	}
 
-	c.Consumer.StartConsumer(ctx, storage)
+	c.Consumer.StartConsumer(ctx, c.cfg, storage)
 }
 
 func (c *AppConsumer) Stop(ctx context.Context) {

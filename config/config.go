@@ -5,8 +5,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/vladislavprovich/user-info/internal/repository/storage"
+
 	"github.com/ilyakaznacheev/cleanenv"
-	"github.com/vladislavprovich/user-info/internal/repository"
 )
 
 type Config struct {
@@ -16,7 +17,7 @@ type Config struct {
 	GRPC    GRPCConfig
 	Otel    OtelConfig
 	Rabbit  RabbitMQConfig
-	MongoDB repository.ConfigMongo
+	MongoDB storage.ConfigMongo
 }
 
 type LoggerConfig struct {
@@ -56,9 +57,15 @@ type RabbitMQConfig struct {
 	Port           int           `env:"RABBIT_PORT"`
 	QueueName      string        `env:"RABBIT_QUEUE_NAME"`
 	CacheTTL       time.Duration `env:"RABBIT_CACHE_TTL"`
-	ExchangeName   string        `env:"RABBIT_EXCHANGE_NAME"`
 	MaxRetries     uint64        `env:"RABBIT_MAX_RETRIES"`
 	MaxElapsedTime time.Duration `env:"RABBIT_MAX_ELAPSED_TIME"`
+	Durable        bool          `env:"RABBIT_QUEUE_DURABLE"`
+	AutoDelete     bool          `env:"RABBIT_QUEUE_AUTODELETE"`
+	Exclusive      bool          `env:"RABBIT_QUEUE_EXCLUSIVE"`
+	NoWait         bool          `env:"RABBIT_QUEUE_NOWAIT"`
+	ConsumerTag    string        `env:"RABBIT_QUEUE_CONSUMER_TAG"`
+	AutoAck        bool          `env:"RABBIT_QUEUE_AUTOACK"`
+	NoLocal        bool          `env:"RABBIT_QUEUE_NOLOCAL"`
 }
 
 func MustLoad() *Config {

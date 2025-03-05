@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vladislavprovich/user-info/config"
+
 	"github.com/streadway/amqp"
 	"github.com/vladislavprovich/user-info/internal/models"
 	"github.com/vladislavprovich/user-info/internal/repository/mongomodels"
@@ -17,37 +19,37 @@ const recordAttemptsDatabase = 5
 
 // Consumer is responsible for processing messages from the queue.
 type Consumer struct {
-	Channel  *amqp.Channel // Channel RabbitMQ.
-	Queue    string        // Queue name.
-	cache    sync.Map      // Local cache for message uniqueness.
-	cacheTTL time.Duration // The lifetime of a cache entry.
-	log      *slog.Logger
+	Channel   *amqp.Channel // Channel RabbitMQ.
+	QueueName string        // Settings in the config.
+	cache     sync.Map      // Local cache for message uniqueness.
+	log       *slog.Logger
+	CacheTTL  time.Duration
 }
 
 // NewConsumer creates a new consumer and initializes the cache.
-func NewConsumer(conn *amqp.Connection, queue string, cacheTTL time.Duration, log *slog.Logger) (*Consumer, error) {
+func NewConsumer(conn *amqp.Connection, cfg *config.Config, log *slog.Logger) (*Consumer, error) {
 	ch, err := conn.Channel()
 	if err != nil {
 		return nil, err
 	}
 	// Declare the queue if it doesn't exist yet.
 	_, err = ch.QueueDeclare(
-		queue, // Queue name.
-		true,  // Durable (remains after restart).
-		false, // Auto-deleted
-		false, // Exclusive
-		false, // No-wait
-		nil,   // Arguments
+		cfg.Rabbit.QueueName,  // Queue name.
+		cfg.Rabbit.Durable,    // Durable (remains after restart).
+		cfg.Rabbit.AutoDelete, // Auto-deleted
+		cfg.Rabbit.Exclusive,  // Exclusive
+		cfg.Rabbit.NoWait,     // No-wait
+		nil,                   // Arguments
 	)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Consumer{
-		Channel:  ch,
-		Queue:    queue,
-		cacheTTL: cacheTTL,
-		log:      log,
+		Channel:   ch,
+		QueueName: cfg.Rabbit.QueueName,
+		CacheTTL:  cfg.Rabbit.CacheTTL,
+		log:       log,
 	}, nil
 }
 
@@ -61,22 +63,22 @@ func (c *Consumer) isDuplicate(messageID string) bool {
 func (c *Consumer) addToCache(messageID string) {
 	c.cache.Store(messageID, struct{}{})
 	go func() {
-		time.Sleep(c.cacheTTL)
+		time.Sleep(c.CacheTTL)
 		c.cache.Delete(messageID)
 	}()
 }
 
 // StartConsumer starts message processing.
-func (c *Consumer) StartConsumer(ctx context.Context, storage storage.UserStorage) {
+func (c *Consumer) StartConsumer(ctx context.Context, cfg *config.Config, storage storage.UserStorage) {
 	// Consume messages from the queue.
 	msgs, err := c.Channel.Consume(
-		c.Queue, // Queue name.
-		"",      // Consumer Tag (empty means RabbitMQ generates it automatically).
-		false,   // Auto-Ack: false (manual message acknowledgment).
-		false,   // Exclusive: false (allows multiple consumers on the same queue).
-		false,   // No-Local: false (consumer can receive its own messages).
-		false,   // No-Wait: false (wait for broker response before starting consumption).
-		nil,     // Arguments: nil (no additional parameters needed).
+		cfg.Rabbit.QueueName,   // Queue name.
+		cfg.Rabbit.ConsumerTag, // Consumer Tag (empty means RabbitMQ generates it automatically).
+		cfg.Rabbit.AutoAck,     // Auto-Ack: false (manual message acknowledgment).
+		cfg.Rabbit.Exclusive,   // Exclusive: false (allows multiple consumers on the same queue).
+		cfg.Rabbit.NoLocal,     // No-Local: false (consumer can receive its own messages).
+		cfg.Rabbit.NoWait,      // No-Wait: false (wait for broker response before starting consumption).
+		nil,                    // Arguments: nil (no additional parameters needed).
 	)
 	if err != nil {
 		c.log.ErrorContext(ctx, "Error consuming messages", slog.Any("error", err))
@@ -89,7 +91,7 @@ func (c *Consumer) StartConsumer(ctx context.Context, storage storage.UserStorag
 		}
 	}()
 
-	c.log.InfoContext(ctx, "Consumer started", slog.String("queue", c.Queue))
+	c.log.InfoContext(ctx, "Consumer started", slog.String("queue", c.QueueName))
 }
 
 // processMessage handles the processing of a single message.

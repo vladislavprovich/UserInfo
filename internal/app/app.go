@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/vladislavprovich/user-info/internal/repository"
 	"github.com/vladislavprovich/user-info/internal/repository/storage"
 
 	"github.com/vladislavprovich/user-info/config"
@@ -23,7 +22,7 @@ func New(
 	trace trace.TracerProvider,
 ) *App {
 	// Connect MongoDB.
-	mongoFactory, err := repository.NewMongo(cfg.MongoDB)
+	mongoFactory, err := storage.NewMongo(cfg.MongoDB)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to connect to MongoDB", slog.Any("error", err))
 		panic(err)
