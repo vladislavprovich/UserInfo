@@ -3,19 +3,17 @@ package main
 import (
 	"context"
 	"io"
-	"path/filepath"
-
-	"github.com/vladislavprovich/user-info/pkg/logger/slogpretty"
-	"github.com/vladislavprovich/user-info/pkg/telemetry"
-
 	defaultLog "log"
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/vladislavprovich/user-info/config"
-	app "github.com/vladislavprovich/user-info/internal/app"
+	"github.com/vladislavprovich/user-info/internal/app/consumer"
+	"github.com/vladislavprovich/user-info/pkg/logger/slogpretty"
+	"github.com/vladislavprovich/user-info/pkg/telemetry"
 )
 
 const (
@@ -33,14 +31,13 @@ func main() {
 	// Init logs directory.
 	err := telemetry.EnsureLogDir(cfg.Logging.LogDir)
 	if err != nil {
-		log.Error("failed to ensure log dir",
+		log.ErrorContext(ctx, "failed to ensure log dir",
 			slog.String("dir", cfg.Logging.LogDir),
 			slog.String("error ", err.Error()))
 	}
 
-	log.Info("starting application",
+	log.InfoContext(ctx, "starting consumer application",
 		slog.String("env", cfg.Logger.Env),
-		slog.Int("grpc_port", cfg.GRPC.PortGRPC),
 	)
 
 	_, err = telemetry.InitMetrics(ctx, log, cfg)
@@ -54,28 +51,28 @@ func main() {
 	}
 	defer func() {
 		if err = tracerProvider.Shutdown(context.Background()); err != nil {
-			log.Error("failed to shutdown tracer", slog.String("error", err.Error()))
+			log.ErrorContext(ctx, "failed to shutdown tracer", slog.String("error", err.Error()))
 		}
 	}()
 
-	application := app.New(ctx, log, cfg, tracerProvider)
+	consumerApp := consumer.New(ctx, log, cfg)
 
-	go application.GRPCSrv.Run()
+	// Run consumer.
+	go consumerApp.Run(ctx, consumerApp.Storage)
 
 	// Graceful shutdown.
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
 	sign := <-stop
-	log.Info("stopping application", slog.String("signal", sign.String()))
-	application.GRPCSrv.Stop()
-
-	log.Info("application stopped")
+	log.InfoContext(ctx, "stopping consumer application", slog.String("signal", sign.String()))
+	consumerApp.Stop(ctx)
+	log.InfoContext(ctx, "consumer application stopped")
 }
 
 func setupLogger(ctx context.Context, cfg *config.Config) *slog.Logger {
 	var log *slog.Logger
-	logFilePath := filepath.Join(cfg.Logging.LogDir, "app.log")
+	logFilePath := filepath.Join(cfg.Logging.LogDir, "consumer.log")
 	logFile, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		log.ErrorContext(ctx, "failed to open log file",
@@ -84,7 +81,6 @@ func setupLogger(ctx context.Context, cfg *config.Config) *slog.Logger {
 		os.Exit(1)
 	}
 
-	// Use io.MultiWriter to write logs to both stdout and file.
 	multiWriter := io.MultiWriter(os.Stdout, logFile)
 
 	switch cfg.Logger.Env {
