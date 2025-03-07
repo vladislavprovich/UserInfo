@@ -48,6 +48,7 @@ func New(ctx context.Context, log *slog.Logger, cfg *config.Config) *AppConsumer
 		RMQConn:  conn,
 		Log:      log,
 		Storage:  db,
+		cfg:      cfg,
 	}
 }
 
