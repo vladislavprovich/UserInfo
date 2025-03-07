@@ -1,0 +1,68 @@
+version: '3.8'
+
+networks:
+  otel_net:
+    external: true
+
+services:
+  mongo:
+    image: mongo:6.0
+    container_name: storage
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - otel_net
+
+  userinfo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: userinfoservice
+    depends_on:
+      - mongo
+    env_file:
+      - .env
+    ports:
+      - "50051:50051"
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - otel_net
+
+  consumer:
+    build:
+      context: .
+      dockerfile: Dockerfileconsumer
+    container_name: consumer
+    depends_on:
+      - mongo
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+    command: [ "/app/consumer" ]
+    networks:
+      - otel_net
+
+  promtail-userinfo:
+    image: grafana/promtail:2.8.2
+    container_name: promtail-userinfo
+    restart: always
+    volumes:
+      - ./logs:/app/logs
+      - ./config/promtail-config.yml:/etc/promtail/config.yml
+    command:
+      - "-config.file=/etc/promtail/config.yml"
+    ports:
+      - "9080:9080"
+    networks:
+      - otel_net
+
+
+volumes:
+  mongo_data:

@@ -2,5 +2,55 @@ version: '3'
 
 tasks:
   start:
-    
+    desc: "Start the local UserInfo service"
+    cmds:
+      - echo "Starting local UserInfo service..."
+      - go run cmd/main.go --config=./.env
+    ignore_error: true
+    silent: false
 
+  start-consumer:
+    desc: "Start the consumer service"
+    cmds:
+      - echo "Starting consumer service..."
+      - go run cmd/consumer/main.go --config=./.env
+    ignore_error: true
+    silent: false
+
+  lint:
+    desc: "Run Go linters"
+    cmds:
+      - echo "Running linters..."
+      - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+      - golangci-lint run --timeout=5m
+    silent: false
+
+  vulncheck:
+    desc: "Check for security vulnerabilities"
+    cmds:
+      - echo "Checking for security vulnerabilities..."
+      - go install golang.org/x/vuln/cmd/govulncheck@latest
+      #      - $env:Path += ";" + (go env GOPATH) + "\bin"  Temporarily adds to PATH
+      - govulncheck ./...
+    silent: false
+
+  fmt:
+    desc: "Format Go code"
+    cmds:
+      - echo "Formatting code..."
+      - gofmt -w .
+    silent: false
+
+  test:
+    desc: "Run unit tests"
+    cmds:
+      - echo "Running tests..."
+      - go test -v ./...
+    silent: false
+
+  build:
+    desc: "Build the project"
+    cmds:
+      - echo "Building the project..."
+      - go build -o userinfo cmd/main.go
+    silent: false
