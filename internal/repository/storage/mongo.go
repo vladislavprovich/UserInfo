@@ -12,7 +12,7 @@ import (
 )
 
 type UserStorage interface {
-	GetUserByID(ctx context.Context, id string) (*mongomodels.User, error)
+	GetUserByID(ctx context.Context, id int64) (*mongomodels.User, error)
 	GetUserByEmail(ctx context.Context, email string) (*mongomodels.User, error)
 	SaveUser(ctx context.Context, user *mongomodels.User) error
 }
@@ -53,7 +53,7 @@ func (s *MongoDBStorage) SaveUser(ctx context.Context, user *mongomodels.User) e
 	return nil
 }
 
-func (s *MongoDBStorage) GetUserByID(ctx context.Context, id string) (*mongomodels.User, error) {
+func (s *MongoDBStorage) GetUserByID(ctx context.Context, id int64) (*mongomodels.User, error) {
 	s.log.InfoContext(ctx, "Get user by ID")
 
 	var user mongomodels.User

@@ -153,7 +153,7 @@ func (c *Consumer) saveUserWithRetries(ctx context.Context, user *mongomodels.Us
 	for attempt := range recordAttemptsDatabase {
 		err := storage.SaveUser(ctx, user)
 		if err == nil {
-			c.log.InfoContext(ctx, "User successfully saved", slog.String("user_id", user.UserID))
+			c.log.InfoContext(ctx, "User successfully saved", slog.Int64("user_id", user.UserID))
 			return true
 		}
 
@@ -162,6 +162,6 @@ func (c *Consumer) saveUserWithRetries(ctx context.Context, user *mongomodels.Us
 			slog.Any("error", err))
 	}
 	c.log.ErrorContext(ctx, "Failed to save user after multiple attempts",
-		slog.String("user_id", user.UserID))
+		slog.Int64("user_id", user.UserID))
 	return false
 }
