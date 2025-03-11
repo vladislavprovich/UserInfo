@@ -52,8 +52,11 @@ jobs:
       - name: Run tests
         run: go test -v ./...
 
-      - name: Build application
-        run: go build -o userinfo ./cmd/user-info/main.go
+      - name: Build application consumer
+        run: go build -o userinfo ./cmd/consumer/main.go
+
+      - name: Build application userinfo
+        run: go build -o userinfo ./cmd/userinfo_service/main.go
 
   deploy-mock:
     needs: build
