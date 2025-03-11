@@ -7,10 +7,11 @@ import (
 
 	"github.com/vladislavprovich/user-info/internal/models"
 	"github.com/vladislavprovich/user-info/internal/repository/mongomodels"
-	"github.com/vladislavprovich/user-info/internal/repository/storage"
+	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	userinfo "github.com/vladislavprovich/protobuf-contract/gen/go/userinfo"
+	"github.com/vladislavprovich/user-info/internal/repository/storage"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 )
@@ -27,70 +28,20 @@ type Server interface {
 
 type APIServer struct {
 	userinfo.UnimplementedUserInfoServiceServer
-	Server    Server
-	Storage   storage.UserStorage
-	Log       *slog.Logger
-	Tracer    trace.Tracer
-	convector *ConvertToStorage
+	Server             Server
+	Storage            storage.UserStorage
+	Log                *slog.Logger
+	Tracer             trace.Tracer
+	convectorToStorage *ConvertToStorage
 }
 
 func Register(gRPC *grpc.Server, tracer trace.Tracer, log *slog.Logger, storage storage.UserStorage) {
 	userinfo.RegisterUserInfoServiceServer(gRPC, &APIServer{
-		Storage:   storage,
-		Log:       log,
-		Tracer:    tracer,
-		convector: NewConvertToStorage(),
+		Storage:            storage,
+		Log:                log,
+		Tracer:             tracer,
+		convectorToStorage: NewConvertToStorage(),
 	})
-}
-
-func (s *APIServer) definitionReqForUser(
-	ctx context.Context,
-	lookupValue interface{},
-	lookupType string,
-) (*models.User, error) {
-	s.Log.InfoContext(ctx, fmt.Sprintf("Call GetUserBy%s", lookupType), slog.Any(lookupType, lookupValue))
-
-	ctx, span := s.Tracer.Start(ctx, fmt.Sprintf("server.GetUserBy%s", lookupType))
-	defer span.End()
-
-	var (
-		userMongoModels *mongomodels.User
-		err             error
-	)
-
-	switch lookupType {
-	case lookTypeID:
-		userID, ok := lookupValue.(int64)
-		if !ok {
-			return nil, fmt.Errorf("invalid type for userID: expected int64, got %T", lookupValue)
-		}
-		userMongoModels, err = s.Storage.GetUserByID(ctx, userID)
-		s.Log.InfoContext(ctx, "Search by id", slog.Int64("userID", userID))
-
-	case lookTypeEmail:
-		email, ok := lookupValue.(string)
-		if !ok {
-			return nil, fmt.Errorf("invalid type for email: expected string, got %T", lookupValue)
-		}
-		userMongoModels, err = s.Storage.GetUserByEmail(ctx, email)
-		s.Log.InfoContext(ctx, "Search by email", slog.String("email", email))
-
-	default:
-		return nil, fmt.Errorf("invalid lookup type: %s", lookupType)
-	}
-
-	if err != nil {
-		s.Log.WarnContext(ctx, fmt.Sprintf("GetUserBy%s error", lookupType),
-			slog.Any(lookupType, lookupValue),
-			slog.String("error", err.Error()),
-		)
-		span.RecordError(err)
-		return nil, fmt.Errorf("get user by %s error: %w", lookupType, err)
-	}
-
-	user := s.convector.ConvectorMongoModelsToUserModels(userMongoModels)
-
-	return user, nil
 }
 
 func (s *APIServer) GetUserByID(
@@ -100,7 +51,7 @@ func (s *APIServer) GetUserByID(
 	ctx, span := s.Tracer.Start(ctx, "server.GetUserByID")
 	defer span.End()
 
-	user, err := s.definitionReqForUser(ctx, req.GetUserId(), lookTypeID)
+	user, err := s.definitionReqForUserByID(ctx, req.GetUserId())
 	if err != nil {
 		s.Log.ErrorContext(ctx, "GetUserByID error",
 			slog.Int64("user_id", req.GetUserId()),
@@ -124,7 +75,7 @@ func (s *APIServer) GetUserByEmail(
 	ctx, span := s.Tracer.Start(ctx, "server.GetUserByEmail")
 	defer span.End()
 
-	user, err := s.definitionReqForUser(ctx, req.GetEmail(), lookTypeEmail)
+	user, err := s.definitionReqForUserByEmail(ctx, req.GetEmail())
 	if err != nil {
 		s.Log.ErrorContext(ctx, "GetUserByEmail error",
 			slog.String("email", req.GetEmail()),
@@ -139,4 +90,63 @@ func (s *APIServer) GetUserByEmail(
 		CreatedAt: timestamppb.New(user.CreatedAt),
 		UpdatedAt: timestamppb.New(user.UpdatedAt),
 	}, nil
+}
+
+func (s *APIServer) definitionReqForUserByID(
+	ctx context.Context,
+	userID int64,
+) (*models.User, error) {
+	return definitionReqForUser(
+		ctx,
+		userID,
+		s.Storage.GetUserByID,
+		lookTypeID,
+		s.convectorToStorage.ConvectorMongoModelsToUserModels,
+		s.Log,
+		s.Tracer,
+	)
+}
+
+func (s *APIServer) definitionReqForUserByEmail(
+	ctx context.Context,
+	email string,
+) (*models.User, error) {
+	return definitionReqForUser(
+		ctx,
+		email,
+		s.Storage.GetUserByEmail,
+		lookTypeEmail,
+		s.convectorToStorage.ConvectorMongoModelsToUserModels,
+		s.Log,
+		s.Tracer,
+	)
+}
+
+func definitionReqForUser[T comparable](
+	ctx context.Context,
+	lookupValue T,
+	getUserFunc func(context.Context, T) (*mongomodels.User, error),
+	logKey string,
+	converter func(*mongomodels.User) *models.User,
+	log *slog.Logger,
+	tracer trace.Tracer,
+) (*models.User, error) {
+	log.InfoContext(ctx, fmt.Sprintf("Call GetUserBy%s", logKey), slog.Any(logKey, lookupValue))
+
+	ctx, span := tracer.Start(ctx, fmt.Sprintf("server.GetUserBy%s", logKey))
+	defer span.End()
+
+	span.SetAttributes(attribute.String(logKey, fmt.Sprintf("%v", lookupValue)))
+
+	userMongoModels, err := getUserFunc(ctx, lookupValue)
+	if err != nil {
+		log.WarnContext(ctx, fmt.Sprintf("GetUserBy%s error", logKey),
+			slog.Any(logKey, lookupValue),
+			slog.String("error", err.Error()),
+		)
+		span.RecordError(err)
+		return nil, fmt.Errorf("get user by %s error: %w", logKey, err)
+	}
+
+	return converter(userMongoModels), nil
 }
