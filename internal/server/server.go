@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -96,14 +97,17 @@ func (s *APIServer) definitionReqForUserByID(
 	ctx context.Context,
 	userID int64,
 ) (*models.User, error) {
-	return definitionReqForUser(
+	return s.definitionReqForUser(
 		ctx,
 		userID,
-		s.Storage.GetUserByID,
+		func(ctx context.Context, v any) (*mongomodels.User, error) {
+			userIDRes, ok := v.(int64)
+			if !ok {
+				return nil, errors.New("invalid type for userID")
+			}
+			return s.Storage.GetUserByID(ctx, userIDRes)
+		},
 		lookTypeID,
-		s.convectorToStorage.ConvectorMongoModelsToUserModels,
-		s.Log,
-		s.Tracer,
 	)
 }
 
@@ -111,42 +115,43 @@ func (s *APIServer) definitionReqForUserByEmail(
 	ctx context.Context,
 	email string,
 ) (*models.User, error) {
-	return definitionReqForUser(
+	return s.definitionReqForUser(
 		ctx,
 		email,
-		s.Storage.GetUserByEmail,
+		func(ctx context.Context, v any) (*mongomodels.User, error) {
+			emailRes, ok := v.(string)
+			if !ok {
+				return nil, errors.New("invalid type for email")
+			}
+			return s.Storage.GetUserByEmail(ctx, emailRes)
+		},
 		lookTypeEmail,
-		s.convectorToStorage.ConvectorMongoModelsToUserModels,
-		s.Log,
-		s.Tracer,
 	)
 }
 
-func definitionReqForUser[T comparable](
+func (s *APIServer) definitionReqForUser(
 	ctx context.Context,
-	lookupValue T,
-	getUserFunc func(context.Context, T) (*mongomodels.User, error),
+	// We use the any type to specify the type of data being passed. To avoid large functions with generics.
+	lookupValue any,
+	getUserFunc func(context.Context, any) (*mongomodels.User, error),
 	logKey string,
-	converter func(*mongomodels.User) *models.User,
-	log *slog.Logger,
-	tracer trace.Tracer,
 ) (*models.User, error) {
-	log.InfoContext(ctx, fmt.Sprintf("Call GetUserBy%s", logKey), slog.Any(logKey, lookupValue))
+	s.Log.InfoContext(ctx, fmt.Sprintf("Call GetUserBy%s", logKey), slog.Any(logKey, lookupValue))
 
-	ctx, span := tracer.Start(ctx, fmt.Sprintf("server.GetUserBy%s", logKey))
+	ctx, span := s.Tracer.Start(ctx, fmt.Sprintf("server.GetUserBy%s", logKey))
 	defer span.End()
 
 	span.SetAttributes(attribute.String(logKey, fmt.Sprintf("%v", lookupValue)))
 
 	userMongoModels, err := getUserFunc(ctx, lookupValue)
 	if err != nil {
-		log.WarnContext(ctx, fmt.Sprintf("GetUserBy%s error", logKey),
+		s.Log.WarnContext(ctx, fmt.Sprintf("GetUserBy%s error", logKey),
 			slog.Any(logKey, lookupValue),
 			slog.String("error", err.Error()),
 		)
 		span.RecordError(err)
-		return nil, fmt.Errorf("get user by %s error: %w", logKey, err)
+		return nil, err
 	}
 
-	return converter(userMongoModels), nil
+	return s.convectorToStorage.ConvectorMongoModelsToUserModels(userMongoModels), nil
 }
