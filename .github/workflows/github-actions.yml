@@ -53,7 +53,7 @@ jobs:
         run: go test -v ./...
 
       - name: Build application
-        run: go build -o userinfo ./cmd/main.go
+        run: go build -o userinfo ./cmd/user-info/main.go
 
   deploy-mock:
     needs: build
