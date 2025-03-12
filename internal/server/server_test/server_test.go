@@ -32,7 +32,7 @@ func (m *MockStorage) SaveUser(ctx context.Context, user *mongomodels.User) erro
 	return args.Error(0)
 }
 
-func (m *MockStorage) GetUserByID(ctx context.Context, id string) (*mongomodels.User, error) {
+func (m *MockStorage) GetUserByID(ctx context.Context, id int64) (*mongomodels.User, error) {
 	args := m.Called(ctx, id)
 	if user, ok := args.Get(0).(*mongomodels.User); ok {
 		return user, args.Error(1)
@@ -63,7 +63,7 @@ func TestGetUserByID(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		userID        string
+		userID        int64
 		mockReturn    *mongomodels.User
 		mockError     error
 		expectedResp  *userinfo.UserByIDResponse
@@ -72,16 +72,16 @@ func TestGetUserByID(t *testing.T) {
 	}{
 		{
 			name:   "User found",
-			userID: "123",
+			userID: 123,
 			mockReturn: &mongomodels.User{
-				UserID:    "123",
+				UserID:    123,
 				Email:     "test@example.com",
 				CreatedAt: now,
 				UpdatedAt: now,
 			},
 			mockError: nil,
 			expectedResp: &userinfo.UserByIDResponse{
-				UserId:    "123",
+				UserId:    123,
 				Email:     "test@example.com",
 				CreatedAt: timestamppb.New(now),
 				UpdatedAt: timestamppb.New(now),
@@ -91,7 +91,7 @@ func TestGetUserByID(t *testing.T) {
 		},
 		{
 			name:          "User not found",
-			userID:        "999",
+			userID:        999,
 			mockReturn:    nil,
 			mockError:     errors.New("user not found"),
 			expectedResp:  nil,
@@ -100,7 +100,7 @@ func TestGetUserByID(t *testing.T) {
 		},
 		{
 			name:          "Database error",
-			userID:        "500",
+			userID:        500,
 			mockReturn:    nil,
 			mockError:     errors.New("database connection error"),
 			expectedResp:  nil,
@@ -157,14 +157,14 @@ func TestGetUserByEmail(t *testing.T) {
 			name:  "User found",
 			email: "test@example.com",
 			mockReturn: &mongomodels.User{
-				UserID:    "123",
+				UserID:    123,
 				Email:     "test@example.com",
 				CreatedAt: now,
 				UpdatedAt: now,
 			},
 			mockError: nil,
 			expectedResp: &userinfo.UserByEmailResponse{
-				UserId:    "123",
+				UserId:    123,
 				Email:     "test@example.com",
 				CreatedAt: timestamppb.New(now),
 				UpdatedAt: timestamppb.New(now),

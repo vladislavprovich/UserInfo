@@ -2,12 +2,11 @@ FROM golang:1.23.6 AS builder
 
 WORKDIR /app
 
-COPY go.mod go.sum ./
+COPY ../../go.mod go.sum ./
 RUN go mod download
 
-COPY . .
+COPY ../.. .
 
-# Додано CGO_ENABLED=0 для статичного білда
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /app/consumer cmd/consumer/main.go
 RUN chmod +x /app/consumer
 
@@ -17,7 +16,7 @@ WORKDIR /app
 
 COPY --from=builder /app/consumer /app/consumer
 
-COPY .env /app/.env
+COPY ../../.env /app/.env
 
 ENV CONFIG_PATH=/app/.env
 

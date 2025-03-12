@@ -3,7 +3,7 @@ package mongomodels
 import "time"
 
 type User struct {
-	UserID    string    `bson:"user_id"`
+	UserID    int64     `bson:"user_id"`
 	Email     string    `bson:"email"`
 	Password  string    `bson:"password"`
 	CreatedAt time.Time `bson:"created_at"`
@@ -11,7 +11,7 @@ type User struct {
 }
 
 type UserResponseJSON struct {
-	UserID    string `json:"user_id"`
+	UserID    int64  `json:"user_id"`
 	Email     string `json:"email"`
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`

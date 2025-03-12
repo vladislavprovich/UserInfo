@@ -21,7 +21,7 @@ services:
   userinfo:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: cmd/userinfo_service/Dockerfile.userinfo
     container_name: userinfoservice
     depends_on:
       - mongo
@@ -37,7 +37,7 @@ services:
   consumer:
     build:
       context: .
-      dockerfile: Dockerfileconsumer
+      dockerfile: cmd/consumer/Dockerfile.consumer
     container_name: consumer
     depends_on:
       - mongo

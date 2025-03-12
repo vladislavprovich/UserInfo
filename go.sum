@@ -109,6 +109,10 @@ github.com/stretchr/testify v1.10.0 h1:Xv5erBjTwe/5IxqUQTdXv5kgmIvbHo3QQyRwhJsOf
 github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/vladislavprovich/protobuf-contract v0.0.5 h1:D36PqCXKcZDepyPvgvrxSD6S3IXUn11l7QlfTE+klC8=
 github.com/vladislavprovich/protobuf-contract v0.0.5/go.mod h1:XQNlC20XywmJrEdZAm037dbomX3OWC3aWbFpLZ0n/yQ=
+github.com/vladislavprovich/protobuf-contract v0.0.6 h1:O4VSx/JosH2hacWVcj3xQg3w3tQMCYaDCe9162cZASU=
+github.com/vladislavprovich/protobuf-contract v0.0.6/go.mod h1:XQNlC20XywmJrEdZAm037dbomX3OWC3aWbFpLZ0n/yQ=
+github.com/vladislavprovich/protobuf-contract v0.0.7 h1:LT96ec9NiVA+FBaLxHTrY6iSpiuajgUQh/s4PbMrJMk=
+github.com/vladislavprovich/protobuf-contract v0.0.7/go.mod h1:XQNlC20XywmJrEdZAm037dbomX3OWC3aWbFpLZ0n/yQ=
 github.com/vladislavprovich/protobufContract v0.0.3 h1:7GzIzPNRW5hSNMLaycNBnjKGYKrE1fQmycvPygg6JNw=
 github.com/vladislavprovich/protobufContract v0.0.3/go.mod h1:iSuMjEtWVwK5l/nDdmTFxvqMZXPEbPj/EXs9qZgD1sQ=
 github.com/xdg-go/pbkdf2 v1.0.0 h1:Su7DPu48wXMwC3bs7MCNG+z4FhcyEuz5dlvchbq0B0c=
